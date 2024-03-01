@@ -1,0 +1,2 @@
+Error should be handled when the current diectory is changed the pwd command not worked 
+No Multiple Avilable lines
