@@ -13,13 +13,17 @@ Data    : March 2024
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdlib.h>
+#include <signal.h>
 
 
 /******************* Global Variables *************************/
-char Input_Command[100]; //<! input command from user>
-char* parsed_command[5];	//<! Array for parsing command
+char Input_Command[256]; 		//<! input command from user>
+char* parsed_command[16];		//<! Array for parsing command
 
-
+char systemBuff[] = "/usr/bin/";	//Absolute path
+int i=0;				// iteration variable
+int ret_id;
 
 /*
 function on_child_exit()
@@ -28,6 +32,24 @@ function on_child_exit()
 
 */
 
+void on_child_exit(int signl_nu)
+{
+	int status;
+	pid_t pid;
+	
+	
+	//while((pid = waitpid(-1, &status,WNOHANG)) >0) ;
+	
+	
+		//printf("[LOG] child proccess terminated.\n");
+	FILE *pFile;
+        pFile = fopen("log.txt", "a");
+        if(pFile==NULL) perror("Error opening file.");
+        else fprintf(pFile, "[LOG] child proccess terminated.\n");
+        fclose(pFile);
+	
+
+}
 
 
 
@@ -45,24 +67,22 @@ function execute_command()
 
 */
 void execute_command(){
-		int ret_id =fork();
+		 ret_id =fork();
 
-       		 if(ret_id <0)
+       		 if(ret_id == -1)
                		 printf("fork failed");
-       		 else if(ret_id >0)
-       		 {
-               		// printf("this perant with id =%d \n ",getpid());
-               		 int status;
-			 wait(&status);
-       		 }
        		 else if(ret_id == 0){
-               		// printf("i am the child my id = %d \n",getpid());
-			 char * newargv[] ={NULL};
-			 char * newnvp[] ={NULL};
-			 execve(parsed_command[0] , newargv,newnvp);
-			 printf("ERROR:::: Not Found this command\n");
-       		 }
 
+			 //printf("%s \n",parsed_command[0]);
+			 execvp(parsed_command[0] , parsed_command);
+			 printf("ERROR :::: Not Found this command\n");
+        		// exit(EXIT_SUCCESS);
+       		 }
+		 else 
+       		 {
+               		if(parsed_command[i] == NULL)
+			 	waitpid(ret_id , NULL,0);
+       		 }
 }
 
 
@@ -87,7 +107,15 @@ void execute_shell_bultin()
 	}
 	else if (!strcmp(parsed_command[0],"echo"))
 	{
-	
+		 int i = 1;
+        	// print all arguments to the right of the "echo" command
+        	//strcmp(parsed_command[i],""
+        	while(parsed_command[i]){
+            		printf("%s", parsed_command[i]);
+            		printf("\t");
+            		i++;
+        	}
+        	printf("\n");
 	}
 	else if (!strcmp(parsed_command[0],"export"))
 	{
@@ -107,27 +135,36 @@ void execute_shell_bultin()
 			funcation description
 */
 
-char** parse_input(){
+void parse_input(){
 	
-	char* token ;
 	
-	fgets(Input_Command,100, stdin);
+		//parse input 
+		char* token ;
+		token = strtok(Input_Command, " ");
 	
-	if((strlen(Input_Command)>0) && (Input_Command[strlen(Input_Command)-1] == '\n'))
-		Input_Command[strlen(Input_Command)-1] ='\0';	
+	
+		while(token != NULL){
+	
+			parsed_command[i] = token;
+			i++;
+			token = strtok(NULL, " ");
+		}
 		
-	
-	token = strtok(Input_Command, " ");
-	
-	int i=0;
-	while(token != NULL){
-	
-		parsed_command[i] = token;
-		i++;
-		token = strtok(NULL, " ");
-	}
-	
-	return parsed_command;
+		//Check & command
+		if(!strcmp(parsed_command[i-1],"&")){
+			parsed_command[i-1] = NULL;
+			parsed_command[i] = "&";
+			
+		}
+		else
+		{
+			parsed_command[i] =NULL;
+		}
+			
+
+			
+		//todo ----> evaluate_expression
+		
 	
 }
 
@@ -150,29 +187,39 @@ void shell()
 {	
 
 	
-	do
+	while(1)
 	{	
-		//parse input 
-		printf("ready $> ");
-		if(parse_input() == NULL){
-			printf("Parsing Fail !! \n");
-			continue;
-		}
-			
 		
-		if(strlen(Input_Command) == 0)
+		
+		printf("ready $: ");
+		fgets(Input_Command,100, stdin);
+	
+	
+		if((strlen(Input_Command)>0) && (Input_Command[strlen(Input_Command)-1] == '\n'))
+			Input_Command[strlen(Input_Command)-1] ='\0';	
+			
+			
+		if(!strcmp(Input_Command,""))
 			continue;
 			
-		//todo ----> evaluate_expression
+		if(!strcmp(Input_Command,"exit"))
+			break;		
 		
+		parse_input();
 		
 		// Command Switching
 		if((!strcmp(parsed_command[0],"cd")) || (!strcmp(parsed_command[0],"echo")) || (!strcmp(parsed_command[0],"export")))
 		{
 			execute_shell_bultin();
 		}else{
-		
-			printf("this command should executed \n");
+			
+				
+			//add absolute path
+	 		//strcat(systemBuff,parsed_command[0]);
+         		//strcpy(parsed_command[0] , systemBuff);
+         		
+         		
+			//printf("this command should executed \n");
 			execute_command();
 		}
 		
@@ -186,8 +233,7 @@ void shell()
 	}
 	*/
 	}
-	while(strcmp(parsed_command[0],"exit")); //<---------
-
+	
 
 }
 
@@ -200,7 +246,7 @@ function setup_environment()
 */
 void setup_environment()
 {
-	if(chdir("/usr/bin/")) // On  success,  zero is returned.
+	if(chdir("/home/badr/")) // On  success,  zero is returned.
 	{
 		printf("No such file or Directory/n");
 	}
@@ -218,9 +264,10 @@ function parent_main()
 
 int main()
 {
-	//todo -> regiter child signla
+
 	
-	
+	// tie the handler to the SGNCHLD signal
+	signal(SIGCHLD, on_child_exit);
 	
 	//Setup environment
 	setup_environment();
