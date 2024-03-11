@@ -1,2 +1,6 @@
 Error should be handled when the current diectory is changed the pwd command not worked 
 No Multiple Avilable lines
+
+
+@ V3 -> Handle case of string sparated by spaces in export as export  x="-l -a -h"
+
