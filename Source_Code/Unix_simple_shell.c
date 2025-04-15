@@ -157,8 +157,13 @@ void execute_shell_bultin()
 		//Save data in data array storage
 		strcpy(data_storage[data_counter].name, parsed_command[0]);
 		strcpy(data_storage[data_counter].value ,parsed_command[1]);
-		data_counter++ ;
-		
+
+		// Save as an Env Variable
+		if(setenv(data_storage[data_counter].name ,data_storage[data_counter].value,1) == 0){
+			data_counter++ ;
+		}else{
+			fprintf(stderr, "export: Fail Operation\n");
+		}
 		/*
 		for(int k=0;k<5;k++)
 		{
